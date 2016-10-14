@@ -12,6 +12,12 @@ available, etc!
 [hubot]: http://hubot.github.com
 [generator-hubot]: https://github.com/github/generator-hubot
 
+### Running GetSat Glipbot on Heroku
+
+If you already have your Glip email address and password, you can use [Heroku One-Button Deployment](https://devcenter.heroku.com/articles/heroku-button).
+
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+
 ### Running zendesk Locally
 
 You can test your hubot by running the following, however some plugins will not
