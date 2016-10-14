@@ -1,0 +1,53 @@
+{
+  "name": "Glipbot for Zendesk",
+  "description": "A Glipbot to pull and query Zendesk",
+  "repository": "https://github.com/pkvenu/zendesk",
+  "logo": "",
+  "keywords": ["Glip","Glipbot","Hubot","Zendesk"],
+  "website": "https://github.com/grokify",
+  "addons": [
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "Free"
+    }
+  },
+  "env": {
+    "HUBOT_GLIP_EMAIL": {
+      "description": "Glipbot user email",
+      "value": "",
+      "required": true
+    },
+    "HUBOT_GLIP_PASSWORD": {
+      "description": "Glipbot user password",
+      "value": "",
+      "required": true
+    },
+    "HUBOT_GLIP_HOST": {
+      "description": "Glip host",
+      "value": "glip.com",
+      "required": true
+    },
+    "HUBOT_GLIP_ROOM": {
+      "description": "Chat Room to Display message",
+      "value": "",
+      "required": true
+    },
+    "HUBOT_ZENDESK_USER": {
+      "description": "Zendesk username",
+      "value": "jitender.kumar@ringcentral.com",
+      "required": true
+    },
+    "HUBOT_ZENDESK_PASSWORD": {
+      "description": "Zendesk password",
+      "value": "",
+      "required": true
+    },
+    "HUBOT_ZENDESK_SUBDOMAIN": {
+      "description": "Zendesk subdomain",
+      "value": "ringcentraldev",
+      "required": true
+    }
+  }
+}
