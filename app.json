@@ -2,7 +2,7 @@
   "name": "Glipbot for Zendesk",
   "description": "A Glipbot to pull and query Zendesk",
   "repository": "https://github.com/pkvenu/zendesk",
-  "logo": "",
+  "logo": "https://d16cvnquvjw7pr.cloudfront.net/www/img/p-brand/downloads/Logo/Zendesk_logo_RGB.png",
   "keywords": ["Glip","Glipbot","Hubot","Zendesk"],
   "website": "https://github.com/grokify",
   "addons": [
