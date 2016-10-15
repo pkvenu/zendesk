@@ -23,7 +23,7 @@
 
 sys = require 'util'
 tickets_url = "https://#{process.env.HUBOT_ZENDESK_SUBDOMAIN}.zendesk.com/tickets"
-room = #{process.env.HUBOT_GLIP_ROOM}
+room = "#{process.env.HUBOT_GLIP_ROOM}"
 queries =
   unsolved: "search.json?query=status<solved+type:ticket"
   open: "search.json?query=status:open+type:ticket"
@@ -108,6 +108,7 @@ module.exports = (robot) ->
         results = if req.body.payload? then JSON.parse req.body.payload else req.body
         envelope = user: {reply_to: parseInt(room)}
         message = formatted_message(results)
+        console.log(room)
         robot.send envelope, message
         res.send 'OK'
 
