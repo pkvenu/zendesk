@@ -22,8 +22,11 @@
 
 
 sys = require 'util'
+conversation = require 'hubot-conversation'
+
 tickets_url = "https://#{process.env.HUBOT_ZENDESK_SUBDOMAIN}.zendesk.com/tickets"
 room = "#{process.env.HUBOT_GLIP_ROOM}"
+
 queries =
   unsolved: "search.json?query=status<solved+type:ticket"
   open: "search.json?query=status:open+type:ticket"
@@ -61,35 +64,47 @@ zendesk_request = (msg, url, handler) ->
 
 # FIXME this works about as well as a brick floats
 zendesk_user = (msg, user_id) ->
+  console.log ("user method called !")
   zendesk_request msg, "#{queries.users}/#{user_id}.json", (result) ->
     if result.error
       msg.send result.description
       return
-    result.user
+#    console.log (result)
+    return result
 
-zendesk_user_organization = (msg, user_id, organization_id ) ->
-  zendesk_request msg, "#{queries.users}/#{user_id}/organizations.json", (result) ->
-    if result.error
-      msg.send result.description
-      return
-    result.organization
-
-zendesk_ticket_last_audit = (msg, user_id, organization_id ) ->
-  zendesk_request msg, "#{queries.tickets}/#{ticket_id}/audit.json?sort_order=desc", (result) ->
-    if result.error
-      msg.send result.description
-      return
-    result.ticket_last_audit
+#zendesk_user_organization = (msg, user_id, organization_id ) ->
+#  zendesk_request msg, "#{queries.users}/#{user_id}/organizations.json", (result) ->
+#    if result.error
+#      msg.send result.description
+#      return
+#    result.organization
+#
+#zendesk_ticket_last_audit = (msg, user_id, organization_id ) ->
+#  zendesk_request msg, "#{queries.tickets}/#{ticket_id}/audit.json?sort_order=desc", (result) ->
+#    if result.error
+#      msg.send result.description
+#      return
+#    result.ticket_last_audit
 
 formatted_message = (results, cb) ->
 
-  for audit in results.last_audits
-    for event in audit.events
-      event_type = event.type.toLowerCase()
+#  console.log JSON.stringify(results)
 
-  for zd_user in results.users
-    if zd_user.id == results.ticket.requester_id
-      username = zd_user.name
+  if results.last_audits
+    for audit in results.last_audits
+      for event in audit.events
+        event_type = event.type.toLowerCase()
+
+#  if results.users
+    for zd_user in results.users
+      if zd_user.id == results.requester_id
+        username = zd_user.name
+#  else
+#    username = zendesk_user(msg, results.requester_id) ->
+#    console.log(JSON.stringify(username))
+#
+#  org = zendesk_user_organization(msg, results.requester_id, results.organization_id)
+#  console.log(JSON.stringify(org))
 
   message = "Ticket #{event_type}ed by #{username}"
   message += "\n"
@@ -104,6 +119,8 @@ formatted_message = (results, cb) ->
   return message
 
 module.exports = (robot) ->
+
+    switchBoard = new conversation(robot)
     robot.router.post '/hubot/zendesk', (req, res) ->
         results = if req.body.payload? then JSON.parse req.body.payload else req.body
         envelope = user: {reply_to: parseInt(room)}
@@ -112,37 +129,96 @@ module.exports = (robot) ->
         robot.send envelope, message
         res.send 'OK'
 
-#    robot.respond /(?:zendesk|zd) (all )?tickets$/i, (msg) ->
-#      zendesk_request msg, queries.unsolved, (results) ->
-#        ticket_count = results.count
-#        msg.send "##{ticket_count} unsolved tickets"
-#
-#
-#    robot.respond /(?:zendesk|zd) pending tickets$/i, (msg) ->
-#      zendesk_request msg, queries.pending, (results) ->
-#        ticket_count = results.count
-#        msg.send "##{ticket_count} pending tickets"
-#
-#    robot.respond /(?:zendesk|zd) new tickets$/i, (msg) ->
-#      zendesk_request msg, queries.new, (results) ->
-#        ticket_count = results.count
-#        msg.send "##{ticket_count} new tickets"
-#
-#    robot.respond /(?:zendesk|zd) escalated tickets$/i, (msg) ->
-#      zendesk_request msg, queries.escalated, (results) ->
-#        ticket_count = results.count
-#        msg.send "##{ticket_count} escalated tickets"
-#
-#    robot.respond /(?:zendesk|zd) open tickets$/i, (msg) ->
-#      zendesk_request msg, queries.open, (results) ->
-#        ticket_count = results.count
-#        msg.send "##{ticket_count} open tickets"
+    robot.respond /(?:zendesk|zd) (all )?tickets$/i, (msg) ->
+      zendesk_request msg, queries.unsolved, (results) ->
+        ticket_count = results.count
+        msg.send "##{ticket_count} unsolved tickets"
 
-#    robot.respond /(?:zendesk|zd) list (all )?tickets$/i, (msg) ->
-#      zendesk_request msg, queries.unsolved, (results) ->
+
+    robot.respond /(?:zendesk|zd) pending tickets$/i, (msg) ->
+      zendesk_request msg, queries.pending, (results) ->
+        ticket_count = results.count
+        msg.send "##{ticket_count} pending tickets"
+
+    robot.respond /(?:zendesk|zd) new tickets$/i, (msg) ->
+      zendesk_request msg, queries.new, (results) ->
+        ticket_count = results.count
+        msg.send "##{ticket_count} new tickets"
+
+    robot.respond /(?:zendesk|zd) escalated tickets$/i, (msg) ->
+      zendesk_request msg, queries.escalated, (results) ->
+        ticket_count = results.count
+        msg.send "##{ticket_count} escalated tickets"
+
+    robot.respond /(?:zendesk|zd) open tickets$/i, (msg) ->
+      zendesk_request msg, queries.open, (results) ->
+        ticket_count = results.count
+        msg.send "##{ticket_count} open tickets"
+
+
+
+    robot.respond /(?:zendesk|zd) list (all )?tickets$/i, (msg) ->
+      zendesk_request msg, queries.unsolved, (results) ->
+        for result in results.results
+          msg.send "[Ticket ##{result.id}](#{result.url}) - #{result.subject}"
+
+        setTimeout () ->
+
+          msg.reply('Want more info? yes or no')
+          dialog = switchBoard.startDialog(msg)
+          dialog.addChoice /yes/i, (msg2) ->
+            msg2.reply('Enter Ticket number')
+            dialog.addChoice /([\d]+)$/i, (msg3) ->
+              ticket_id = msg3.match[1]
+              zendesk_request msg3, "#{queries.tickets}/#{ticket_id}.json?include=users,organizations,last_audits", (result) ->
+                if result.error
+                  msg3.send result.description
+                  return
+                message = formatted_message(result)
+                msg3.send message,
+        60 * 2000
+
+
+
+    robot.respond /(?:zendesk|zd) list new tickets$/i, (msg) ->
+      zendesk_request msg, queries.new, (results) ->
+        for result in results.results
+          msg.send "Ticket #{result.id} is #{result.status}: #{tickets_url}/#{result.id}"
+
+    robot.respond /(?:zendesk|zd) list pending tickets$/i, (msg) ->
+      zendesk_request msg, queries.pending, (results) ->
+        for result in results.results
+          msg.send "Ticket #{result.id} is #{result.status}: #{tickets_url}/#{result.id}"
+
+    robot.respond /(?:zendesk|zd) list escalated tickets$/i, (msg) ->
+      zendesk_request msg, queries.escalated, (results) ->
+        for result in results.results
+          msg.send "Ticket #{result.id} is escalated and #{result.status}: #{tickets_url}/#{result.id}"
+
+    robot.respond /(?:zendesk|zd) list open tickets$/i, (msg) ->
+      zendesk_request msg, queries.open, (results) ->
+        for result in results.results
+          msg.send "Ticket #{result.id} is #{result.status}: #{tickets_url}/#{result.id}"
+
+#
+##    robot.respond /(?:zendesk|zd) list (all )?tickets$/i, (msg) ->
+##      zendesk_request msg, queries.unsolved, (results) ->
+##        for result in results.results
+##          message = formatted_message(result)
+##          msg.send "msg"
+#
+##    robot.respond /(?:zendesk|zd)
+
+#    robot.respond /(?:zendesk|zd) list escalated tickets$/i, (msg) ->
+#      zendesk_request msg, queries.escalated, (results) ->
 #        for result in results.results
-#          message = formatted_message(result)
-#          msg.send "msg"
+#          #message = formatted_message(result)
+#
+#          zendesk_request msg, "#{queries.users}/#{result.requester_id}.json", (result) ->
+#            console.log(result)
+#            msg.send "Ticket #{result.id} is escalated and #{result.status}: #{tickets_url}/#{result.id}"
+#          y = zendesk_user_organization msg,result.requester_id, result.organization_id
+#            console.log JSON.stringify(y)
 
     robot.respond /(?:zendesk|zd) ticket ([\d]+)$/i, (msg) ->
       ticket_id = msg.match[1]
@@ -152,3 +228,4 @@ module.exports = (robot) ->
           return
         message = formatted_message(result)
         msg.send message
+
