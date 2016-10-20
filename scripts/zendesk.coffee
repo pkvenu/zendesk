@@ -99,9 +99,32 @@ formatted_message = (results, cb) ->
 
   return message
 
+
+#Class to support Conversations
+class Conversation
+  constructor: ->
+    @options = []
+    @timer = null
+  reset: -> # reset timer and options
+    clearTimeout(@timer)
+    @options = []
+  startTimer: -> # clear the conversation after 30 seconds
+    setTimeout((() -> @options = []), 30000)
+  addOption: (regex, res, callback) -> # add an conversation option
+    @options.push [regex, res, callback]
+  execute: (content) -> # execute based on user input
+    for option in @options
+      [regex, res, callback] = option
+      match = content.match regex
+      if match != null # if matches the option
+        callback(res, match)
+        @reset()
+        break
+
+conversation = new Conversation()
+
 module.exports = (robot) ->
 
-    switchBoard = new conversation(robot)
     robot.router.post '/hubot/zendesk', (req, res) ->
         results = if req.body.payload? then JSON.parse req.body.payload else req.body
         envelope = user: {reply_to: parseInt(room)}
@@ -109,32 +132,37 @@ module.exports = (robot) ->
         console.log(room)
         robot.send envelope, message
         res.send 'OK'
+        res.end()
 
     robot.respond /(?:zendesk|zd) (all )?tickets$/i, (msg) ->
       zendesk_request msg, queries.unsolved, (results) ->
         ticket_count = results.count
         msg.send "##{ticket_count} unsolved tickets"
-
+        results.end()
 
     robot.respond /(?:zendesk|zd) pending tickets$/i, (msg) ->
       zendesk_request msg, queries.pending, (results) ->
         ticket_count = results.count
         msg.send "##{ticket_count} pending tickets"
+        results.end()
 
     robot.respond /(?:zendesk|zd) new tickets$/i, (msg) ->
       zendesk_request msg, queries.new, (results) ->
         ticket_count = results.count
         msg.send "##{ticket_count} new tickets"
+        results.end()
 
     robot.respond /(?:zendesk|zd) escalated tickets$/i, (msg) ->
       zendesk_request msg, queries.escalated, (results) ->
         ticket_count = results.count
         msg.send "##{ticket_count} escalated tickets"
+        results.end()
 
     robot.respond /(?:zendesk|zd) open tickets$/i, (msg) ->
       zendesk_request msg, queries.open, (results) ->
         ticket_count = results.count
         msg.send "##{ticket_count} open tickets"
+        results.end()
 
     robot.respond /(?:zendesk|zd) list (all )?tickets$/i, (msg) ->
       zendesk_request msg, queries.unsolved, (results) ->
@@ -143,39 +171,125 @@ module.exports = (robot) ->
 
         setTimeout () ->
 
-          msg.reply('Want more info? yes or no')
-          dialog = switchBoard.startDialog(msg)
-          dialog.addChoice /yes/i, (msg2) ->
-            msg2.reply('Enter Ticket number')
-            dialog.addChoice /([\d]+)$/i, (msg3) ->
-              ticket_id = msg3.match[1]
-              zendesk_request msg3, "#{queries.tickets}/#{ticket_id}.json?include=users,organizations,last_audits", (result) ->
+          msg.reply('Want more info about a ticket? yes or no')
+          conversation.startTimer()
+          robot.hear /yes$/i, (res) ->
+            res.send 'Enter Ticket Number:'
+            conversation.reset()
+            robot.hear(/([\d]+)$/i, (res) ->
+              ticket_id = res.match[1]
+              conversation.reset()
+              zendesk_request msg, "#{queries.tickets}/#{ticket_id}.json?include=users,organizations,last_audits", (result) ->
                 if result.error
-                  msg3.send result.description
+                  msg.send result.description
                   return
                 message = formatted_message(result)
-                msg3.send message,
+                msg.send message
+                result.end()
+            )
         60 * 2000
 
     robot.respond /(?:zendesk|zd) list new tickets$/i, (msg) ->
       zendesk_request msg, queries.new, (results) ->
         for result in results.results
-          msg.send "Ticket #{result.id} is #{result.status}: #{tickets_url}/#{result.id}"
+          msg.send "[Ticket ##{result.id}](#{result.url}) - #{result.subject}"
+
+        setTimeout () ->
+
+          msg.reply('Want more info about a ticket? yes or no')
+          conversation.startTimer()
+          robot.hear /yes$/i, (res) ->
+            res.send 'Enter Ticket Number:'
+            conversation.reset()
+            robot.hear(/([\d]+)$/i, (res) ->
+              ticket_id = res.match[1]
+              conversation.reset()
+              zendesk_request msg, "#{queries.tickets}/#{ticket_id}.json?include=users,organizations,last_audits", (result) ->
+                if result.error
+                  msg.send result.description
+                  return
+                message = formatted_message(result)
+                msg.send message
+                result.end()
+            )
+        60 * 2000
 
     robot.respond /(?:zendesk|zd) list pending tickets$/i, (msg) ->
       zendesk_request msg, queries.pending, (results) ->
         for result in results.results
-          msg.send "Ticket #{result.id} is #{result.status}: #{tickets_url}/#{result.id}"
+          msg.send "[Ticket ##{result.id}](#{result.url}) - #{result.subject}"
+
+        setTimeout () ->
+
+          msg.reply('Want more info about a ticket? yes or no')
+          conversation.startTimer()
+          robot.hear /yes$/i, (res) ->
+            conversation.reset()
+            res.send 'Enter Ticket Number:'
+            conversation.startTimer()
+            robot.hear(/([\d]+)$/i, (res) ->
+              ticket_id = res.match[1]
+              conversation.reset()
+              zendesk_request msg, "#{queries.tickets}/#{ticket_id}.json?include=users,organizations,last_audits", (result) ->
+                if result.error
+                  msg.send result.description
+                  return
+                message = formatted_message(result)
+                msg.send message
+                result.end()
+            )
+        60 * 2000
 
     robot.respond /(?:zendesk|zd) list escalated tickets$/i, (msg) ->
       zendesk_request msg, queries.escalated, (results) ->
         for result in results.results
-          msg.send "Ticket #{result.id} is escalated and #{result.status}: #{tickets_url}/#{result.id}"
+          msg.send "[Ticket ##{result.id}](#{result.url}) - #{result.subject}"
+
+        setTimeout () ->
+
+          msg.reply('Want more info about a ticket? yes or no')
+          conversation.startTimer()
+          robot.hear /yes$/i, (res) ->
+            res.send 'Enter Ticket Number:'
+            conversation.reset()
+            robot.hear(/([\d]+)$/i, (res) ->
+              ticket_id = res.match[1]
+              conversation.reset()
+              zendesk_request msg, "#{queries.tickets}/#{ticket_id}.json?include=users,organizations,last_audits", (result) ->
+                if result.error
+                  msg.send result.description
+                  return
+                message = formatted_message(result)
+                msg.send message
+                result.end()
+            )
+        60 * 2000
 
     robot.respond /(?:zendesk|zd) list open tickets$/i, (msg) ->
       zendesk_request msg, queries.open, (results) ->
         for result in results.results
-          msg.send "Ticket #{result.id} is #{result.status}: #{tickets_url}/#{result.id}"
+          msg.send "[Ticket ##{result.id}](#{result.url}) - #{result.subject}"
+
+        setTimeout () ->
+
+          msg.reply('Want more info about a ticket? yes or no')
+          conversation.reset()
+          conversation.startTimer()
+          robot.hear /yes$/i, (res) ->
+            res.send 'Enter Ticket Number:'
+            conversation.reset()
+            robot.hear(/([\d]+)$/i, (res) ->
+              ticket_id = res.match[1]
+              conversation.reset()
+              zendesk_request msg, "#{queries.tickets}/#{ticket_id}.json?include=users,organizations,last_audits", (result) ->
+                if result.error
+                  msg.send result.description
+                  return
+                message = formatted_message(result)
+                msg.send message
+                result.end()
+            )
+          60 * 2000
 
 
     robot.respond /(?:zendesk|zd) ticket ([\d]+)$/i, (msg) ->
@@ -186,4 +300,5 @@ module.exports = (robot) ->
           return
         message = formatted_message(result)
         msg.send message
+        result.end()
 
